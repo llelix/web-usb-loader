@@ -47,6 +47,19 @@
             font-size: 32px;
         }
 
+        .section-header {
+            margin-bottom: 16px;
+        }
+
+        .section-header h2 {
+            font-size: 20px;
+            font-weight: 500;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .content {
             background-color: white;
             border-radius: 0 0 8px 8px;
@@ -269,6 +282,21 @@
         </div>
         <div class="content">
             <div id="message-container"></div>
+
+            <!-- Mounted filesystems section -->
+            <div class="section-header">
+                <h2><i class="material-icons">drive_file_move</i> Currently Mounted</h2>
+            </div>
+            <div id="mounts-container" class="disks-list" style="display: none;">
+                <!-- Mounted filesystems will be populated here -->
+            </div>
+            <div id="no-mounts" class="loading" style="display: none;">
+                <p>No filesystems currently mounted.</p>
+            </div>
+
+            <div class="section-header" style="margin-top: 32px;">
+                <h2><i class="material-icons">storage</i> Available Disks</h2>
+            </div>
             <div id="loading" class="loading">
                 <i class="material-icons">autorenew</i>
                 <p>Loading disk information...</p>
@@ -282,10 +310,13 @@
     <script>
         // Global variables
         let disks = [];
+        let mounts = [];
 
         // DOM elements
         const loadingEl = document.getElementById('loading');
         const disksContainer = document.getElementById('disks-container');
+        const mountsContainer = document.getElementById('mounts-container');
+        const noMountsEl = document.getElementById('no-mounts');
         const messageContainer = document.getElementById('message-container');
 
         // Show message function
@@ -313,6 +344,24 @@
                 console.error('Error fetching disks:', error);
                 showMessage('Failed to fetch disk information. Please check the server.', 'error');
                 loadingEl.style.display = 'none';
+            }
+        }
+
+        // Fetch mounted filesystems from API
+        async function fetchMounts() {
+            try {
+                const response = await fetch('/api/mounts');
+                const data = await response.json();
+
+                if (data.success) {
+                    mounts = data.data || [];
+                    renderMounts();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching mounts:', error);
+                showMessage('Failed to fetch mount information. Please check the server.', 'error');
             }
         }
 
@@ -351,6 +400,36 @@
                         <button class="btn btn-secondary" onclick="hideMountForm('${disk.device}')">Cancel</button>
                         <button class="btn btn-primary" onclick="mountDisk('${disk.device}')">Mount Disk</button>
                     </div>
+                </div>
+            `).join('');
+        }
+
+        // Render mounted filesystems to the page
+        function renderMounts() {
+            if (mounts.length === 0) {
+                mountsContainer.style.display = 'none';
+                noMountsEl.style.display = 'block';
+                return;
+            }
+
+            mountsContainer.style.display = 'grid';
+            noMountsEl.style.display = 'none';
+
+            mountsContainer.innerHTML = mounts.map(mount => `
+                <div class="disk-card">
+                    <div class="disk-info">
+                        <div class="disk-icon">
+                            <i class="material-icons">drive_file_move</i>
+                        </div>
+                        <div class="disk-details">
+                            <h3>${mount.device}</h3>
+                            <p>Mounted at: ${mount.mountPoint} • ${mount.filesystem}</p>
+                        </div>
+                    </div>
+                    <button class="mount-button" style="background-color: #d32f2f;" onclick="unmountDisk('${mount.mountPoint}')">
+                        <i class="material-icons">eject</i>
+                        Unmount
+                    </button>
                 </div>
             `).join('');
         }
@@ -410,9 +489,43 @@
             }
         }
 
+        // Unmount disk function
+        async function unmountDisk(mountPoint) {
+            if (!confirm(`Are you sure you want to unmount ${mountPoint}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/unmount', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mountPoint: mountPoint
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`Successfully unmounted ${mountPoint}`, 'success');
+                    // Refresh mounts list after successful unmount
+                    fetchMounts();
+                    // Also refresh disks list in case the unmounted device becomes available again
+                    fetchDisks();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error unmounting disk:', error);
+                showMessage('Failed to unmount filesystem. Please check permissions and try again.', 'error');
+            }
+        }
+
         // Initialize the app
         document.addEventListener('DOMContentLoaded', () => {
             fetchDisks();
+            fetchMounts();
         });
     </script>
 </body>

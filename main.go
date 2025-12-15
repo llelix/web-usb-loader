@@ -17,6 +17,14 @@ type DiskInfo struct {
 	MountPoint string `json:"mountPoint"`
 }
 
+// MountInfo represents information about a mounted filesystem
+type MountInfo struct {
+	Device     string `json:"device"`
+	MountPoint string `json:"mountPoint"`
+	Filesystem string `json:"filesystem"`
+	Options    string `json:"options"`
+}
+
 // Response structure for API responses
 type Response struct {
 	Success bool        `json:"success"`
@@ -28,6 +36,8 @@ func main() {
 	// Set up routes
 	http.HandleFunc("/api/disks", getDisksHandler)
 	http.HandleFunc("/api/mount", mountDiskHandler)
+	http.HandleFunc("/api/mounts", getMountsHandler)
+	http.HandleFunc("/api/unmount", unmountHandler)
 
 	// Serve static files (HTML, CSS, JS)
 	http.Handle("/", http.FileServer(http.Dir("./static")))
@@ -58,6 +68,31 @@ func getDisksHandler(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Message: "Disk information retrieved successfully",
 		Data:    disks,
+	})
+}
+
+// getMountsHandler handles requests to get currently mounted filesystems
+func getMountsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	mounts, err := getMountInfo()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response{
+			Success: false,
+			Message: "Failed to get mount information: " + err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Response{
+		Success: true,
+		Message: "Mount information retrieved successfully",
+		Data:    mounts,
 	})
 }
 
@@ -120,6 +155,54 @@ func mountDiskHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// unmountHandler handles requests to unmount a filesystem
+func unmountHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		MountPoint string `json:"mountPoint"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response{
+			Success: false,
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	if req.MountPoint == "" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response{
+			Success: false,
+			Message: "Mount point is required",
+		})
+		return
+	}
+
+	// Execute umount command
+	cmd := exec.Command("umount", req.MountPoint)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response{
+			Success: false,
+			Message: "Unmount failed: " + string(output),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Response{
+		Success: true,
+		Message: "Filesystem unmounted successfully",
+	})
+}
+
 // getDiskInfo executes fdisk -l and parses the output
 func getDiskInfo() ([]DiskInfo, error) {
 	cmd := exec.Command("fdisk", "-l")
@@ -171,4 +254,43 @@ func parseFdiskOutput(output string) []DiskInfo {
 	}
 
 	return disks
+}
+
+// getMountInfo reads /proc/mounts and returns information about mounted filesystems
+func getMountInfo() ([]MountInfo, error) {
+	data, err := exec.Command("cat", "/proc/mounts").Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read /proc/mounts: %w", err)
+	}
+
+	return parseMountsOutput(string(data)), nil
+}
+
+// parseMountsOutput parses the output of /proc/mounts
+func parseMountsOutput(output string) []MountInfo {
+	var mounts []MountInfo
+	lines := strings.Split(output, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// /proc/mounts format: device mountpoint filesystem options dump pass
+		parts := strings.Fields(line)
+		if len(parts) >= 4 {
+			// Only show removable devices (typically under /dev) and user-created mounts
+			if strings.HasPrefix(parts[0], "/dev/") || strings.HasPrefix(parts[1], "/mnt/") || strings.HasPrefix(parts[1], "/media/") {
+				mounts = append(mounts, MountInfo{
+					Device:     parts[0],
+					MountPoint: parts[1],
+					Filesystem: parts[2],
+					Options:    parts[3],
+				})
+			}
+		}
+	}
+
+	return mounts
 }
