@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USB Loader</title>
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Google Fonts - Roboto -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background-color: #1976d2;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header h1 i {
+            font-size: 32px;
+        }
+
+        .content {
+            background-color: white;
+            border-radius: 0 0 8px 8px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: #1976d2;
+        }
+
+        .disks-list {
+            display: grid;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .disk-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .disk-card:hover {
+            border-color: #1976d2;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .disk-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .disk-icon {
+            width: 48px;
+            height: 48px;
+            background-color: #e3f2fd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1976d2;
+            font-size: 24px;
+        }
+
+        .disk-details h3 {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .disk-details p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .mount-button {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mount-button:hover {
+            background-color: #1565c0;
+        }
+
+        .mount-button:disabled {
+            background-color: #bdbdbd;
+            cursor: not-allowed;
+        }
+
+        .mount-form {
+            display: none;
+            margin-top: 16px;
+            padding: 16px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .mount-form.active {
+            display: block;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .form-row label {
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 80px;
+        }
+
+        .form-row input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: #1976d2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1565c0;
+        }
+
+        .btn-secondary {
+            background-color: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+
+        .message {
+            padding: 12px;
+            margin: 16px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .message.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+
+            .header {
+                padding: 16px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .content {
+                padding: 16px;
+            }
+
+            .disk-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .form-row label {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="material-icons">storage</i> USB Loader</h1>
+        </div>
+        <div class="content">
+            <div id="message-container"></div>
+            <div id="loading" class="loading">
+                <i class="material-icons">autorenew</i>
+                <p>Loading disk information...</p>
+            </div>
+            <div id="disks-container" class="disks-list" style="display: none;">
+                <!-- Disks will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let disks = [];
+
+        // DOM elements
+        const loadingEl = document.getElementById('loading');
+        const disksContainer = document.getElementById('disks-container');
+        const messageContainer = document.getElementById('message-container');
+
+        // Show message function
+        function showMessage(text, type = 'info') {
+            messageContainer.innerHTML = `<div class="message ${type}">${text}</div>`;
+            setTimeout(() => {
+                messageContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        // Fetch disks from API
+        async function fetchDisks() {
+            try {
+                const response = await fetch('/api/disks');
+                const data = await response.json();
+
+                if (data.success) {
+                    disks = data.data || [];
+                    renderDisks();
+                } else {
+                    showMessage(data.message, 'error');
+                    loadingEl.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching disks:', error);
+                showMessage('Failed to fetch disk information. Please check the server.', 'error');
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        // Render disks to the page
+        function renderDisks() {
+            loadingEl.style.display = 'none';
+            disksContainer.style.display = 'grid';
+
+            if (disks.length === 0) {
+                disksContainer.innerHTML = '<p>No disks found.</p>';
+                return;
+            }
+
+            disksContainer.innerHTML = disks.map(disk => `
+                <div class="disk-card">
+                    <div class="disk-info">
+                        <div class="disk-icon">
+                            <i class="material-icons">${disk.type === 'Partition' ? 'sd_storage' : 'storage'}</i>
+                        </div>
+                        <div class="disk-details">
+                            <h3>${disk.device}</h3>
+                            <p>${disk.size} • ${disk.type}</p>
+                        </div>
+                    </div>
+                    <button class="mount-button" onclick="showMountForm('${disk.device}')">
+                        <i class="material-icons">drive_file_move</i>
+                        Mount
+                    </button>
+                </div>
+                <div id="mount-form-${disk.device}" class="mount-form">
+                    <div class="form-row">
+                        <label for="mount-path-${disk.device}">Mount Path:</label>
+                        <input type="text" id="mount-path-${disk.device}" value="/mnt/usb" placeholder="Enter mount path">
+                    </div>
+                    <div class="form-buttons">
+                        <button class="btn btn-secondary" onclick="hideMountForm('${disk.device}')">Cancel</button>
+                        <button class="btn btn-primary" onclick="mountDisk('${disk.device}')">Mount Disk</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Show mount form for a specific disk
+        function showMountForm(device) {
+            document.querySelectorAll('.mount-form').forEach(form => {
+                form.classList.remove('active');
+            });
+            const form = document.getElementById(`mount-form-${device}`);
+            if (form) {
+                form.classList.add('active');
+            }
+        }
+
+        // Hide mount form
+        function hideMountForm(device) {
+            const form = document.getElementById(`mount-form-${device}`);
+            if (form) {
+                form.classList.remove('active');
+            }
+        }
+
+        // Mount disk function
+        async function mountDisk(device) {
+            const pathInput = document.getElementById(`mount-path-${device}`);
+            const mountPath = pathInput.value.trim();
+
+            if (!mountPath) {
+                showMessage('Please enter a mount path.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/mount', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        device: device,
+                        path: mountPath
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`Successfully mounted ${device} to ${mountPath}`, 'success');
+                    hideMountForm(device);
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error mounting disk:', error);
+                showMessage('Failed to mount disk. Please check permissions and try again.', 'error');
+            }
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchDisks();
+        });
+    </script>
+</body>
+</html>
